@@ -1,8 +1,12 @@
-from csv import DictReader
-from dataclasses import dataclass
+# %% Importando bibliotecas
 import os
 import re
+import statistics as st
+from csv import DictReader
+from dataclasses import dataclass
+from typing import Optional
 
+import numpy as np
 import pandas as pd
 
 
@@ -46,6 +50,7 @@ def safe_filename(name: str, replacement: str = "_") -> str:
     return cleaned or "unnamed"
 
 
+# %% dividindo arquivo em frames
 def split_into_frames(df: pd.DataFrame) -> list[pd.DataFrame]:
     col_df_list: list[pd.DataFrame] = []
     for col in df.columns[:-1]:
@@ -67,59 +72,78 @@ def split_into_frames(df: pd.DataFrame) -> list[pd.DataFrame]:
     return col_df_list
 
 
-with open(
-    "../inmet_dados_historicos_curitiba/01.normalizer.header/some.csv",
-) as fp:
-    csv_reader = DictReader(fp, delimiter=";")
+def pivot_csv():
+    with open(
+        "../inmet_dados_historicos_curitiba/01.normalizer.header/some.csv",
+    ) as fp:
+        csv_reader = DictReader(fp, delimiter=";")
 
-    df = pd.DataFrame(csv_reader)
-    df["DATA-HORA"] = pd.to_datetime(
-        df[Cols.DATA] + " " + df[Cols.HORA],
-        format="mixed",
-        utc=True,
-    )
+        df = pd.DataFrame(csv_reader)
+        df["DATA-HORA"] = pd.to_datetime(
+            df[Cols.DATA] + " " + df[Cols.HORA],
+            format="mixed",
+            utc=True,
+        )
 
-    df.sort_values(
-        by="DATA-HORA",
-        inplace=True,
-    )
+        df.sort_values(
+            by="DATA-HORA",
+            inplace=True,
+        )
 
-    df.drop(
-        [Cols.DATA, Cols.HORA, ""],
-        inplace=True,
-        axis=1,
-    )
+        df.drop(
+            [Cols.DATA, Cols.HORA, ""],
+            inplace=True,
+            axis=1,
+        )
 
-    for col in df.columns[:-1]:
-        df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+        for col in df.columns[:-1]:
+            df[col] = df[col].astype(str).str.replace(",", ".", regex=False)
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df.to_csv(
-        "../inmet_dados_historicos_curitiba/02.date_time_merged/inmet_curitiba_2003_2025.csv",
-        index=False,
-    )
-
-    col_df_map: dict[str, pd.DataFrame] = {}
-    for col in df.columns[:-1]:
-        it = range(2004, 2024 + 1)
-        col_df = pd.DataFrame(columns=it)
-
-        for ano in it:
-            some: pd.DataFrame | pd.Series = df[col].loc[
-                (df["DATA-HORA"] >= pd.to_datetime(f"{ano}-01-01", utc=True))
-                & (df["DATA-HORA"] < pd.to_datetime(f"{ano + 1}-01-01", utc=True))
-            ]
-
-            col_df[ano] = some.reset_index(drop=True)
-
-        col_df_map[col] = col_df
-
-    for k, v in col_df_map.items():
-        v.to_csv(
-            f"../inmet_dados_historicos_curitiba/03.split_by_column/{safe_filename(k)}.csv",
+        df.to_csv(
+            "../inmet_dados_historicos_curitiba/02.date_time_merged/inmet_curitiba_2003_2025.csv",
             index=False,
         )
 
+        col_df_map: dict[str, pd.DataFrame] = {}
+        for col in df.columns[:-1]:
+            it = range(2004, 2024 + 1)
+            col_df = pd.DataFrame(columns=it)
 
-col = col_df_map[Cols.PRECIPITACAO_TOTAL_MM]
-print(col.count())
+            for ano in it:
+                some: pd.DataFrame | pd.Series = df[col].loc[
+                    (df["DATA-HORA"] >= pd.to_datetime(f"{ano}-01-01", utc=True))
+                    & (df["DATA-HORA"] < pd.to_datetime(f"{ano + 1}-01-01", utc=True))
+                ]
+
+                col_df[ano] = some.reset_index(drop=True)
+
+            col_df_map[col] = col_df
+
+        for k, v in col_df_map.items():
+            v.to_csv(
+                f"../inmet_dados_historicos_curitiba/03.split_by_column/{safe_filename(k)}.csv",
+                index=False,
+            )
+
+    col = col_df_map[Cols.PRECIPITACAO_TOTAL_MM]
+    print(col.count())
+
+
+# %% carregando arquivos para normalizacao
+csv_path = "../inmet_dados_historicos_curitiba/04.names_for_tables/temp_orvalho_c.csv"
+fp = open(csv_path)
+reader = DictReader(fp)
+df = pd.DataFrame(reader)
+df_tratado = df.copy()
+fp.close()
+
+# %% corrigindo tipagem
+colunas = [str(i) for i in range(2004, 2025)]
+for c in colunas:
+    filtro = df_tratado[c] == ""
+
+for c in colunas:
+    df_tratado[c] = df_tratado[c].astype(float)
+
+df_tratado.head(10)
