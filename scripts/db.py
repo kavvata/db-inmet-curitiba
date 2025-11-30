@@ -1,7 +1,8 @@
+from csv import DictReader
 from pathlib import Path
+
 from cassandra.cluster import Cluster
 from cassandra.query import BatchStatement
-from csv import DictReader
 
 
 def load_csv_to_db(csv_path: str, batch_size: int = 100):

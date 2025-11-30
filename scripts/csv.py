@@ -1,10 +1,8 @@
 # %% Importando bibliotecas
 import os
 import re
-import statistics as st
 from csv import DictReader
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -130,20 +128,55 @@ def pivot_csv():
     print(col.count())
 
 
-# %% carregando arquivos para normalizacao
-csv_path = "../inmet_dados_historicos_curitiba/04.names_for_tables/temp_orvalho_c.csv"
-fp = open(csv_path)
-reader = DictReader(fp)
-df = pd.DataFrame(reader)
-df_tratado = df.copy()
-fp.close()
+NEW_DIR_PATH: str = "./inmet_dados_historicos_curitiba/05.normalized_missing_data/"
 
-# %% corrigindo tipagem
-colunas = [str(i) for i in range(2004, 2025)]
-for c in colunas:
-    filtro = df_tratado[c] == ""
 
-for c in colunas:
-    df_tratado[c] = df_tratado[c].astype(float)
+def normalize_missing(csv_path: str):
+    from os import path
+    from pathlib import Path
 
-df_tratado.head(10)
+    path_obj = Path(csv_path)
+
+    fp = open(csv_path)
+    reader = DictReader(fp)
+    df = pd.DataFrame(reader)
+    df_tratado = df.copy()
+    fp.close()
+    colunas = [str(i) for i in range(2004, 2025)]
+    for c in colunas:
+        df_tratado.loc[(df_tratado[c] == "") | (df_tratado[c] == "-9999.0"), c] = np.nan
+        df_tratado[c] = df_tratado[c].astype(float)
+        df_tratado.loc[df_tratado[c].isna(), c] = round(df_tratado[c].mean(), 2)
+
+    mean_all_columns = round(df_tratado[colunas].mean().mean(), 2)
+    for c in colunas:
+        df_tratado.loc[df_tratado[c].isna(), c] = mean_all_columns
+
+    new_path = path.join(NEW_DIR_PATH, path_obj.name)
+
+    df_tratado.to_csv(new_path, index=False)
+
+
+# # %% carregando arquivos para normalizacao
+# csv_path = "../inmet_dados_historicos_curitiba/04.names_for_tables/temp_orvalho_c.csv"
+# fp = open(csv_path)
+# reader = DictReader(fp)
+# df = pd.DataFrame(reader)
+# df_tratado = df.copy()
+# fp.close()
+
+# df.head(10)
+# # %% visualizando dados
+# df_tratado.describe()
+
+# # %% corrigindo tipagem
+# colunas = [str(i) for i in range(2004, 2025)]
+# for c in colunas:
+#     df_tratado.loc[(df_tratado[c] == "") | (df_tratado[c] == "-9999.0"), c] = np.nan
+#     df_tratado[c] = df_tratado[c].astype(float)
+
+# df_tratado.head(10)
+# # %% aplicando media sob dados faltantes
+# for c in colunas:
+#     df_tratado.loc[df_tratado[c].isna(), c] = df_tratado[c].mean()
+# df_tratado.head(5)

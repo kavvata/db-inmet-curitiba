@@ -9,7 +9,7 @@ from scripts.db import load_csv_to_db
 def load_db():
     thread_list: list[threading.Thread] = []
 
-    csv_dir_path = "./inmet_dados_historicos_curitiba/04.names_for_tables/"
+    csv_dir_path = "./inmet_dados_historicos_curitiba/05.normalized_missing_data/"
     csv_paths = glob.glob(os.path.join(csv_dir_path, "*.csv"))
     for p in csv_paths:
         thread = threading.Thread(
@@ -38,6 +38,11 @@ def normalize():
         thread_list.append(thread)
         print(f"starting work on {p}")
         thread.start()
+
+        for t in thread_list:
+            t.join()
+
+        print("work is done!")
 
 
 if __name__ == "__main__":
